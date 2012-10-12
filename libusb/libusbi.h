@@ -298,7 +298,13 @@ struct libusb_device {
 
 	struct list_head list;
 	unsigned long session_data;
-	unsigned char os_priv[0];
+	unsigned char os_priv
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+	[] /* valid C99 code */
+#else
+	[0] /* non-standard, but usually working code */
+#endif
+    ;
 };
 
 struct libusb_device_handle {
@@ -308,7 +314,13 @@ struct libusb_device_handle {
 
 	struct list_head list;
 	struct libusb_device *dev;
-	unsigned char os_priv[0];
+	unsigned char os_priv
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+	[] /* valid C99 code */
+#else
+	[0] /* non-standard, but usually working code */
+#endif
+    ;
 };
 
 enum {
@@ -430,7 +442,13 @@ void usbi_fd_notification(struct libusb_context *ctx);
 struct discovered_devs {
 	size_t len;
 	size_t capacity;
-	struct libusb_device *devices[0];
+	struct libusb_device *devices
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+	[] /* valid C99 code */
+#else
+	[0] /* non-standard, but usually working code */
+#endif
+    ;
 };
 
 struct discovered_devs *discovered_devs_append(
