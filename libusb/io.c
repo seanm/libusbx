@@ -1850,7 +1850,7 @@ static int handle_events(struct libusb_context *ctx, struct timeval *tv)
 	POLL_NFDS_TYPE nfds = 0;
 	struct pollfd *fds = NULL;
 	int i = -1;
-	int timeout_ms;
+	long timeout_ms;
 
 	usbi_mutex_lock(&ctx->pollfds_lock);
 	list_for_each_entry(ipollfd, &ctx->pollfds, list, struct usbi_pollfd)
@@ -1880,8 +1880,8 @@ static int handle_events(struct libusb_context *ctx, struct timeval *tv)
 	if (tv->tv_usec % 1000)
 		timeout_ms++;
 
-	usbi_dbg("poll() %d fds with timeout in %dms", nfds, timeout_ms);
-	r = usbi_poll(fds, nfds, timeout_ms);
+	usbi_dbg("poll() %d fds with timeout in %ld ms", nfds, timeout_ms);
+	r = usbi_poll(fds, nfds, (int)timeout_ms);
 	usbi_dbg("poll() returned %d", r);
 	if (r == 0) {
 		free(fds);
