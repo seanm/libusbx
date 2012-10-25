@@ -23,6 +23,13 @@
 #ifndef LIBUSB_H
 #define LIBUSB_H
 
+/* On gcc 4 and later, suppress the -Wcast-align warning in this
+ public header, until the warnings can be fixed properly */
+#if defined(__GNUC__) && (__GNUC__ >= 4)
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wcast-align"
+#endif
+
 #ifdef _MSC_VER
 /* on MS environments, the inline keyword is available in C++ only */
 #if !defined(__cplusplus)
@@ -1501,6 +1508,11 @@ void LIBUSB_CALL libusb_set_pollfd_notifiers(libusb_context *ctx,
 
 #ifdef __cplusplus
 }
+#endif
+
+/* On gcc 4 and later, restore suppressed warning */
+#if defined(__GNUC__) && (__GNUC__ >= 4)
+  #pragma GCC diagnostic pop
 #endif
 
 #endif
