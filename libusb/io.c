@@ -1621,7 +1621,7 @@ void API_EXPORTED libusb_unlock_events(libusb_context *ctx)
  */
 int API_EXPORTED libusb_event_handling_ok(libusb_context *ctx)
 {
-	int r;
+	unsigned int r;
 	USBI_GET_CONTEXT(ctx);
 
 	/* is someone else waiting to modify poll fds? if so, don't let this thread
@@ -1649,7 +1649,7 @@ int API_EXPORTED libusb_event_handling_ok(libusb_context *ctx)
  */
 int API_EXPORTED libusb_event_handler_active(libusb_context *ctx)
 {
-	int r;
+	unsigned int r;
 	USBI_GET_CONTEXT(ctx);
 
 	/* is someone else waiting to modify poll fds? if so, don't let this thread
