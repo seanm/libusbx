@@ -1325,7 +1325,7 @@ static inline unsigned char *libusb_get_iso_packet_buffer(
 {
 	int i;
 	size_t offset = 0;
-	int _packet;
+	unsigned int _packet;
 
 	/* oops..slight bug in the API. packet is an unsigned int, but we use
 	 * signed integers almost everywhere else. range-check and convert to
@@ -1365,7 +1365,7 @@ static inline unsigned char *libusb_get_iso_packet_buffer(
 static inline unsigned char *libusb_get_iso_packet_buffer_simple(
 	struct libusb_transfer *transfer, unsigned int packet)
 {
-	int _packet;
+	unsigned int _packet;
 
 	/* oops..slight bug in the API. packet is an unsigned int, but we use
 	 * signed integers almost everywhere else. range-check and convert to
