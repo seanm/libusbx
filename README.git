@@ -20,7 +20,9 @@ in the message:
 
 libtoolize or glibtoolize was not found! Please install libtool.
 
-To proceed, you must find and install it from somewhere. 
+To proceed, you must find and install it from somewhere.
+
+Alternatively, you can use the Xcode project at Xcode/libusbx.xcodeproj.
 
 Notes related to submitting new developments:
 --------------------------------------------
