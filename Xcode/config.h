@@ -23,6 +23,3 @@
 
 /* Use POSIX Threads */
 #define THREADS_POSIX 1
-
-/* Use GNU extensions */
-#define _GNU_SOURCE 1
