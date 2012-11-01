@@ -17,6 +17,13 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
+// ••• Important •••
+// By default, libusbx uses Xcode's default compiler, default Mac OS X SDK, default deployment target, and default architectures.  Depending on your needs, you may want to specify explicit options here.
+//GCC_VERSION =
+//SDKROOT =
+//MACOSX_DEPLOYMENT_TARGET =
+//ARCHS =
+
 // libusbx does not follow C99 strict aliasing rules, so disable it.
 GCC_STRICT_ALIASING = NO
 
@@ -38,3 +45,12 @@ GCC_WARN_UNKNOWN_PRAGMAS = YES
 GCC_WARN_UNUSED_FUNCTION = YES
 GCC_WARN_UNUSED_LABEL = YES
 GCC_WARN_UNUSED_VARIABLE = YES
+CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES
+CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES
+CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES
+
+// TODO: try to enable in libusbx 2.0
+//GCC_STRICT_ALIASING = YES
+//GCC_WARN_SIGN_COMPARE = YES
+//CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES
+//CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES
