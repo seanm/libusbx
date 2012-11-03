@@ -27,3 +27,6 @@ GCC_OPTIMIZATION_LEVEL = s
 
 // Define NDEBUG so asserts go away in release.
 GCC_PREPROCESSOR_DEFINITIONS = $(inherited) NDEBUG=1
+
+// Enable this warning only in release, since gcc only supports it with optimizations on.
+GCC_WARN_UNINITIALIZED_AUTOS = YES
