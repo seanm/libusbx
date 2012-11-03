@@ -37,3 +37,6 @@ doc/html
 Debug
 Release
 *.user
+*.pbxuser
+*.perspectivev3
+xcuserdata
