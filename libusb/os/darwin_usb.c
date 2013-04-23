@@ -1,7 +1,7 @@
 /* -*- Mode: C; indent-tabs-mode:nil -*- */
 /*
  * darwin backend for libusbx 1.0
- * Copyright © 2008-2012 Nathan Hjelm <hjelmn@users.sourceforge.net>
+ * Copyright © 2008-2013 Nathan Hjelm <hjelmn@users.sourceforge.net>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -160,7 +160,7 @@ static int ep_to_pipeRef(struct libusb_device_handle *dev_handle, uint8_t ep, ui
   return -1;
 }
 
-static int usb_setup_device_iterator (io_iterator_t *deviceIterator, long location) {
+static int usb_setup_device_iterator (io_iterator_t *deviceIterator, UInt32 location) {
   CFMutableDictionaryRef matchingDict = IOServiceMatching(kIOUSBDeviceClassName);
 
   if (!matchingDict)
@@ -172,7 +172,9 @@ static int usb_setup_device_iterator (io_iterator_t *deviceIterator, long locati
                                                                          &kCFTypeDictionaryValueCallBacks);
 
     if (propertyMatchDict) {
-      CFTypeRef locationCF = CFNumberCreate (NULL, kCFNumberLongType, &location);
+      /* there are no unsigned CFNumber types so treat the value as signed. the os seems to do this
+         internally (CFNumberType of locationID is 3) */
+      CFTypeRef locationCF = CFNumberCreate (NULL, kCFNumberSInt32Type, &location);
 
       CFDictionarySetValue (propertyMatchDict, CFSTR(kUSBDevicePropertyLocationID), locationCF);
       /* release our reference to the CFNumber (CFDictionarySetValue retains it) */
@@ -292,7 +294,7 @@ static void darwin_devices_detached (void *ptr, io_iterator_t rem_devices) {
   struct darwin_device_handle_priv *priv;
 
   io_service_t device;
-  long location;
+  UInt32 location;
   bool locationValid;
   CFTypeRef locationCF;
   UInt32 message;
@@ -309,7 +311,7 @@ static void darwin_devices_detached (void *ptr, io_iterator_t rem_devices) {
       continue;
 
     locationValid = CFGetTypeID(locationCF) == CFNumberGetTypeID() &&
-	    CFNumberGetValue(locationCF, kCFNumberLongType, &location);
+	    CFNumberGetValue(locationCF, kCFNumberSInt32Type, &location);
 
     CFRelease (locationCF);
 
@@ -633,7 +635,7 @@ static int darwin_cache_device_descriptor (struct libusb_context *ctx, struct li
       /* received an overrun error but we still received a device descriptor */
       ret = kIOReturnSuccess;
 
-    if (kAppleVendorID == idVendor) {
+    if (kIOUSBVendorIDAppleComputer == idVendor) {
       /* NTH: don't bother retrying or unsuspending Apple devices */
       break;
     }
@@ -1383,11 +1385,12 @@ static int submit_iso_transfer(struct usbi_transfer *itransfer) {
   struct darwin_transfer_priv *tpriv = usbi_transfer_get_os_priv(itransfer);
   struct darwin_device_handle_priv *priv = (struct darwin_device_handle_priv *)transfer->dev_handle->os_priv;
 
-  IOReturn                kresult;
-  uint8_t                 pipeRef, iface;
-  UInt64                  frame;
-  AbsoluteTime            atTime;
-  int                     i;
+  IOReturn kresult;
+  uint8_t direction, number, interval, pipeRef, iface, transferType;
+  uint16_t maxPacketSize;
+  UInt64 frame;
+  AbsoluteTime atTime;
+  int i;
 
   struct darwin_interface *cInterface;
 
@@ -1427,6 +1430,9 @@ static int submit_iso_transfer(struct usbi_transfer *itransfer) {
     return darwin_to_libusb (kresult);
   }
 
+  (*(cInterface->interface))->GetPipeProperties (cInterface->interface, pipeRef, &direction, &number,
+                                                 &transferType, &maxPacketSize, &interval);
+
   /* schedule for a frame a little in the future */
   frame += 4;
 
@@ -1443,7 +1449,9 @@ static int submit_iso_transfer(struct usbi_transfer *itransfer) {
                                                               transfer->num_iso_packets, tpriv->isoc_framelist, darwin_async_io_callback,
                                                               itransfer);
 
-  cInterface->frames[transfer->endpoint] = frame + transfer->num_iso_packets / 8;
+  cInterface->frames[transfer->endpoint] = frame + transfer->num_iso_packets * (1 << (interval - 1));
+  if (transfer->dev_handle->dev->speed >= LIBUSB_SPEED_HIGH)
+    cInterface->frames[transfer->endpoint] /= 8;
 
   if (kresult != kIOReturnSuccess) {
     usbi_err (TRANSFER_CTX (transfer), "isochronous transfer failed (dir: %s): %s", IS_XFERIN(transfer) ? "In" : "Out",
@@ -1777,6 +1785,7 @@ static int darwin_clock_gettime(int clk_id, struct timespec *tp) {
 
 const struct usbi_os_backend darwin_backend = {
         .name = "Darwin",
+        .caps = 0,
         .init = darwin_init,
         .exit = darwin_exit,
         .get_device_list = darwin_get_device_list,

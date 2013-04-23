@@ -6,9 +6,11 @@ LINUX_USBFS_SRC = os/linux_usbfs.c
 DARWIN_USB_SRC = os/darwin_usb.c
 OPENBSD_USB_SRC = os/openbsd_usb.c
 WINDOWS_USB_SRC = os/poll_windows.c os/windows_usb.c libusb-1.0.rc
+WINCE_USB_SRC = os/wince_usb.c os/wince_usb.h
 
 EXTRA_DIST = $(LINUX_USBFS_SRC) $(DARWIN_USB_SRC) $(OPENBSD_USB_SRC) \
-	$(WINDOWS_USB_SRC) os/threads_posix.c os/threads_windows.c
+	$(WINDOWS_USB_SRC) $(WINCE_USB_SRC) \
+	os/threads_posix.c os/threads_windows.c
 
 if OS_LINUX
 OS_SRC = $(LINUX_USBFS_SRC)
@@ -45,12 +47,13 @@ else
 THREADS_SRC = os/threads_windows.h os/threads_windows.c
 endif
 
-libusb_1_0_la_CFLAGS = $(VISIBILITY_CFLAGS) $(AM_CFLAGS) $(THREAD_CFLAGS)
+libusb_1_0_la_CFLAGS = $(AM_CFLAGS)
 libusb_1_0_la_LDFLAGS = $(LTLDFLAGS)
 libusb_1_0_la_SOURCES = libusbi.h core.c descriptor.c io.c sync.c $(OS_SRC) \
 	os/linux_usbfs.h os/darwin_usb.h os/windows_usb.h \
 	$(THREADS_SRC) \
-	os/poll_posix.h os/poll_windows.h
+	os/poll_posix.h os/poll_windows.h \
+	os/windows_common.h
 
 hdrdir = $(includedir)/libusb-1.0
 hdr_HEADERS = libusb.h

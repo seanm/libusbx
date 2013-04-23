@@ -28,6 +28,8 @@ listdevs
 xusb
 dpfp
 dpfp_threaded
+fxload
+stress
 *.exe
 *.pc
 doc/html
@@ -37,6 +39,4 @@ doc/html
 Debug
 Release
 *.user
-*.pbxuser
-*.perspectivev3
-xcuserdata
+*.suo

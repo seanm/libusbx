@@ -31,6 +31,9 @@
 #include <poll.h>
 #endif
 
+#ifdef HAVE_MISSING_H
+#include "missing.h"
+#endif
 #include "libusb.h"
 #include "version.h"
 
@@ -49,8 +52,12 @@
 #define USB_MAXINTERFACES	32
 #define USB_MAXCONFIG		8
 
+/* Backend specific capabilities */
+#define USBI_CAP_HAS_HID_ACCESS					0x00010000
+#define USBI_CAP_SUPPORTS_DETACH_KERNEL_DRIVER	0x00020000
+
 /* The following is used to silence warnings for unused variables */
-#define UNUSED(var)			(void)(var)
+#define UNUSED(var)			do { (void)(var); } while(0)
 
 struct list_head {
 	struct list_head *prev, *next;
@@ -192,30 +199,11 @@ static inline void usbi_dbg(const char *format, ...)
 #define IS_XFERIN(xfer) (0 != ((xfer)->endpoint & LIBUSB_ENDPOINT_IN))
 #define IS_XFEROUT(xfer) (!IS_XFERIN(xfer))
 
-/* Internal abstractions for thread synchronization and poll */
+/* Internal abstraction for thread synchronization */
 #if defined(THREADS_POSIX)
 #include "os/threads_posix.h"
-#elif defined(OS_WINDOWS)
+#elif defined(OS_WINDOWS) || defined(OS_WINCE)
 #include <os/threads_windows.h>
-#endif
-
-#if defined(OS_LINUX) || defined(OS_DARWIN) || defined(OS_OPENBSD)
-#include <unistd.h>
-#include "os/poll_posix.h"
-#elif defined(OS_WINDOWS)
-#include <os/poll_windows.h>
-#endif
-
-#if defined(OS_WINDOWS) && !defined(__GCC__)
-#undef HAVE_GETTIMEOFDAY
-int usbi_gettimeofday(struct timeval *tp, void *tzp);
-#define LIBUSB_GETTIMEOFDAY_WIN32
-#define HAVE_USBI_GETTIMEOFDAY
-#else
-#ifdef HAVE_GETTIMEOFDAY
-#define usbi_gettimeofday(tv, tz) gettimeofday((tv), (tz))
-#define HAVE_USBI_GETTIMEOFDAY
-#endif
 #endif
 
 extern struct libusb_context *usbi_default_context;
@@ -298,13 +286,7 @@ struct libusb_device {
 
 	struct list_head list;
 	unsigned long session_data;
-	unsigned char os_priv
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
-	[] /* valid C99 code */
-#else
-	[0] /* non-standard, but usually working code */
-#endif
-    ;
+	unsigned char os_priv[0];
 };
 
 struct libusb_device_handle {
@@ -314,13 +296,7 @@ struct libusb_device_handle {
 
 	struct list_head list;
 	struct libusb_device *dev;
-	unsigned char os_priv
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
-	[] /* valid C99 code */
-#else
-	[0] /* non-standard, but usually working code */
-#endif
-    ;
+	unsigned char os_priv[0];
 };
 
 enum {
@@ -419,7 +395,25 @@ int usbi_parse_descriptor(unsigned char *source, const char *descriptor,
 int usbi_get_config_index_by_value(struct libusb_device *dev,
 	uint8_t bConfigurationValue, int *idx);
 
-/* polling */
+/* Internal abstraction for poll (needs struct usbi_transfer on Windows) */
+#if defined(OS_LINUX) || defined(OS_DARWIN) || defined(OS_OPENBSD)
+#include <unistd.h>
+#include "os/poll_posix.h"
+#elif defined(OS_WINDOWS) || defined(OS_WINCE)
+#include <os/poll_windows.h>
+#endif
+
+#if (defined(OS_WINDOWS) || defined(OS_WINCE)) && !defined(__GCC__)
+#undef HAVE_GETTIMEOFDAY
+int usbi_gettimeofday(struct timeval *tp, void *tzp);
+#define LIBUSB_GETTIMEOFDAY_WIN32
+#define HAVE_USBI_GETTIMEOFDAY
+#else
+#ifdef HAVE_GETTIMEOFDAY
+#define usbi_gettimeofday(tv, tz) gettimeofday((tv), (tz))
+#define HAVE_USBI_GETTIMEOFDAY
+#endif
+#endif
 
 struct usbi_pollfd {
 	/* must come first */
@@ -442,13 +436,7 @@ void usbi_fd_notification(struct libusb_context *ctx);
 struct discovered_devs {
 	size_t len;
 	size_t capacity;
-	struct libusb_device *devices
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
-	[] /* valid C99 code */
-#else
-	[0] /* non-standard, but usually working code */
-#endif
-    ;
+	struct libusb_device *devices[0];
 };
 
 struct discovered_devs *discovered_devs_append(
@@ -461,6 +449,9 @@ struct discovered_devs *discovered_devs_append(
 struct usbi_os_backend {
 	/* A human-readable name for your backend, e.g. "Linux usbfs" */
 	const char *name;
+
+	/* Binary mask for backend specific capabilities */
+	uint32_t caps;
 
 	/* Perform initialization of your backend. You might use this function
 	 * to determine specific capabilities of the system, allocate required
@@ -924,5 +915,6 @@ extern const struct usbi_os_backend linux_usbfs_backend;
 extern const struct usbi_os_backend darwin_backend;
 extern const struct usbi_os_backend openbsd_backend;
 extern const struct usbi_os_backend windows_backend;
+extern const struct usbi_os_backend wince_backend;
 
 #endif

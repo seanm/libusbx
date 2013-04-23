@@ -2,9 +2,9 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="8.00"
-	Name="libusb-1.0 (static)"
-	ProjectGUID="{5AB6B770-1925-48D5-ABC2-930F3259C020}"
-	RootNamespace="libusb"
+	Name="libusb-1.0 (dll)"
+	ProjectGUID="{8224C054-5968-4238-832C-167155E7ECC3}"
+	RootNamespace="libusbdll"
 	Keyword="Win32Proj"
 	>
 	<Platforms>
@@ -20,9 +20,9 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="..\$(PlatformName)\$(ConfigurationName)\lib"
-			IntermediateDirectory="..\$(PlatformName)\$(ConfigurationName)\lib\libusb-1.0"
-			ConfigurationType="4"
+			OutputDirectory="..\$(PlatformName)\$(ConfigurationName)\dll"
+			IntermediateDirectory="..\$(PlatformName)\$(ConfigurationName)\dll\libusb-1.0"
+			ConfigurationType="2"
 			CharacterSet="1"
 			>
 			<Tool
@@ -44,7 +44,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories=".;..\libusb"
-				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -63,11 +63,19 @@
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
-				Name="VCLibrarianTool"
-				OutputFile="$(OutDir)\libusb-1.0.lib"
+				Name="VCLinkerTool"
+				OutputFile="$(OutDir)\libusb-1.0.dll"
+				LinkIncremental="2"
+				ModuleDefinitionFile="..\libusb\libusb-1.0.def"
+				GenerateDebugInformation="true"
+				SubSystem="2"
+				TargetMachine="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -79,66 +87,10 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
-				Name="VCPostBuildEventTool"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Release|Win32"
-			OutputDirectory="..\$(PlatformName)\$(ConfigurationName)\lib"
-			IntermediateDirectory="..\$(PlatformName)\$(ConfigurationName)\lib\libusb-1.0"
-			ConfigurationType="4"
-			CharacterSet="1"
-			WholeProgramOptimization="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
+				Name="VCAppVerifierTool"
 			/>
 			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories=".;..\libusb"
-				PreprocessorDefinitions="WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS"
-				RuntimeLibrary="2"
-				UsePrecompiledHeader="0"
-				WarningLevel="3"
-				Detect64BitPortabilityProblems="false"
-				DebugInformationFormat="3"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
-			<Tool
-				Name="VCLibrarianTool"
-				OutputFile="$(OutDir)\libusb-1.0.lib"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
+				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -146,9 +98,9 @@
 		</Configuration>
 		<Configuration
 			Name="Debug|x64"
-			OutputDirectory="..\$(PlatformName)\$(ConfigurationName)\lib"
-			IntermediateDirectory="..\$(PlatformName)\$(ConfigurationName)\lib\libusb-1.0"
-			ConfigurationType="4"
+			OutputDirectory="..\$(PlatformName)\$(ConfigurationName)\dll"
+			IntermediateDirectory="..\$(PlatformName)\$(ConfigurationName)\dll\libusb-1.0"
+			ConfigurationType="2"
 			CharacterSet="1"
 			>
 			<Tool
@@ -171,7 +123,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories=".;..\libusb"
-				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -190,11 +142,19 @@
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
-				Name="VCLibrarianTool"
-				OutputFile="$(OutDir)\libusb-1.0.lib"
+				Name="VCLinkerTool"
+				OutputFile="$(OutDir)\libusb-1.0.dll"
+				LinkIncremental="2"
+				ModuleDefinitionFile="..\libusb\libusb-1.0.def"
+				GenerateDebugInformation="true"
+				SubSystem="2"
+				TargetMachine="17"
 			/>
 			<Tool
 				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -206,14 +166,98 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
+			/>
+			<Tool
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			OutputDirectory="..\$(PlatformName)\$(ConfigurationName)\dll"
+			IntermediateDirectory="..\$(PlatformName)\$(ConfigurationName)\dll\libusb-1.0"
+			ConfigurationType="2"
+			CharacterSet="1"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalIncludeDirectories=".;..\libusb"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS"
+				RuntimeLibrary="2"
+				UsePrecompiledHeader="0"
+				WarningLevel="3"
+				Detect64BitPortabilityProblems="false"
+				DebugInformationFormat="3"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLinkerTool"
+				OutputFile="$(OutDir)\libusb-1.0.dll"
+				LinkIncremental="1"
+				ModuleDefinitionFile="..\libusb\libusb-1.0.def"
+				GenerateDebugInformation="true"
+				SubSystem="2"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="1"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
+			/>
+			<Tool
 				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Release|x64"
-			OutputDirectory="..\$(PlatformName)\$(ConfigurationName)\lib"
-			IntermediateDirectory="..\$(PlatformName)\$(ConfigurationName)\lib\libusb-1.0"
-			ConfigurationType="4"
+			OutputDirectory="..\$(PlatformName)\$(ConfigurationName)\dll"
+			IntermediateDirectory="..\$(PlatformName)\$(ConfigurationName)\dll\libusb-1.0"
+			ConfigurationType="2"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
@@ -236,7 +280,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				AdditionalIncludeDirectories=".;..\libusb"
-				PreprocessorDefinitions="WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
@@ -253,11 +297,21 @@
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
-				Name="VCLibrarianTool"
-				OutputFile="$(OutDir)\libusb-1.0.lib"
+				Name="VCLinkerTool"
+				OutputFile="$(OutDir)\libusb-1.0.dll"
+				LinkIncremental="1"
+				ModuleDefinitionFile="..\libusb\libusb-1.0.def"
+				GenerateDebugInformation="true"
+				SubSystem="2"
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="17"
 			/>
 			<Tool
 				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -267,6 +321,12 @@
 			/>
 			<Tool
 				Name="VCFxCopTool"
+			/>
+			<Tool
+				Name="VCAppVerifierTool"
+			/>
+			<Tool
+				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -294,15 +354,15 @@
 				>
 			</File>
 			<File
+				RelativePath="..\libusb\os\poll_windows.c"
+				>
+			</File>
+			<File
 				RelativePath="..\libusb\sync.c"
 				>
 			</File>
 			<File
 				RelativePath="..\libusb\os\threads_windows.c"
-				>
-			</File>
-			<File
-				RelativePath="..\libusb\os\poll_windows.c"
 				>
 			</File>
 			<File
@@ -328,15 +388,33 @@
 				>
 			</File>
 			<File
-				RelativePath="..\libusb\os\threads_windows.h"
-				>
-			</File>
-			<File
 				RelativePath="..\libusb\os\poll_windows.h"
 				>
 			</File>
 			<File
+				RelativePath="..\libusb\os\threads_windows.h"
+				>
+			</File>
+			<File
 				RelativePath="..\libusb\os\windows_usb.h"
+				>
+			</File>
+			<File
+				RelativePath="..\libusb\os\windows_common.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="Resource Files"
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav"
+			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
+			>
+			<File
+				RelativePath="..\libusb\libusb-1.0.def"
+				>
+			</File>
+			<File
+				RelativePath="..\libusb\libusb-1.0.rc"
 				>
 			</File>
 		</Filter>

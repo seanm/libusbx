@@ -47,7 +47,7 @@
 #endif /* _SSIZE_T_DEFINED */
 #endif /* _MSC_VER */
 
-/* stdint.h is also not usually available on MS */
+/* stdint.h is not available on older MSVC */
 #if defined(_MSC_VER) && (_MSC_VER < 1600) && (!defined(_STDINT)) && (!defined(_STDINT_H))
 typedef unsigned __int8   uint8_t;
 typedef unsigned __int16  uint16_t;
@@ -56,23 +56,29 @@ typedef unsigned __int32  uint32_t;
 #include <stdint.h>
 #endif
 
+#if !defined(_WIN32_WCE)
 #include <sys/types.h>
-#include <time.h>
-#include <limits.h>
+#endif
 
 #if defined(__linux) || defined(__APPLE__) || defined(__CYGWIN__)
 #include <sys/time.h>
 #endif
+
+#include <time.h>
+#include <limits.h>
 
 /* 'interface' might be defined as a macro on Windows, so we need to
  * undefine it so as not to break the current libusbx API, because
  * libusb_config_descriptor has an 'interface' member
  * As this can be problematic if you include windows.h after libusb.h
  * in your sources, we force windows.h to be included first. */
-#if defined(_WIN32) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__) || defined(_WIN32_WCE)
 #include <windows.h>
 #if defined(interface)
 #undef interface
+#endif
+#if !defined(__CYGWIN__)
+#include <winsock.h>
 #endif
 #endif
 
@@ -108,7 +114,7 @@ typedef unsigned __int32  uint32_t;
  * return type, before the function name. See internal documentation for
  * API_EXPORTED.
  */
-#if defined(_WIN32) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(__CYGWIN__) || defined(_WIN32_WCE)
 #define LIBUSB_CALL WINAPI
 #else
 #define LIBUSB_CALL
@@ -137,7 +143,7 @@ typedef unsigned __int32  uint32_t;
  * Internally, LIBUSBX_API_VERSION is defined as follows:
  * (libusbx major << 24) | (libusbx minor << 16) | (16 bit incremental)
  */
-#define LIBUSBX_API_VERSION 0x010000FF
+#define LIBUSBX_API_VERSION 0x01000101
 
 #ifdef __cplusplus
 extern "C" {
@@ -734,8 +740,8 @@ typedef struct libusb_context libusb_context;
  * Certain operations can be performed on a device, but in order to do any
  * I/O you will have to first obtain a device handle using libusb_open().
  *
- * Devices are reference counted with libusb_device_ref() and
- * libusb_device_unref(), and are freed when the reference count reaches 0.
+ * Devices are reference counted with libusb_ref_device() and
+ * libusb_unref_device(), and are freed when the reference count reaches 0.
  * New devices presented by libusb_get_device_list() have a reference count of
  * 1, and libusb_free_device_list() can optionally decrease the reference count
  * on all devices in the list. libusb_open() adds another reference which is
@@ -995,7 +1001,17 @@ struct libusb_transfer {
  */
 enum libusb_capability {
 	/** The libusb_has_capability() API is available. */
-	LIBUSB_CAP_HAS_CAPABILITY = 0,
+	LIBUSB_CAP_HAS_CAPABILITY = 0x0000,
+	/** Hotplug support is available. */
+	LIBUSB_CAP_HAS_HOTPLUG = 0x0001,
+	/** The library can access HID devices without requiring user intervention.
+	 * Note that before being able to actually access an HID device, you may
+	 * still have to call additional libusbx functions such as
+	 * \ref libusb_detach_kernel_driver(). */
+	LIBUSB_CAP_HAS_HID_ACCESS = 0x0100,
+	/** The library supports detaching of the default USB driver, using 
+	 * \ref libusb_detach_kernel_driver(), if one is set by the OS kernel */
+	LIBUSB_CAP_SUPPORTS_DETACH_KERNEL_DRIVER = 0x0101
 };
 
 /** \ingroup lib

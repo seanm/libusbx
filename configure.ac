@@ -87,16 +87,16 @@ case $backend in
 linux)
 	AC_DEFINE(OS_LINUX, 1, [Linux backend])
 	AC_SUBST(OS_LINUX)
-	AC_CHECK_LIB(rt, clock_gettime, PC_LIBS_PRIVATE="-lrt")
+	AC_SEARCH_LIBS(clock_gettime, rt, [], [], -pthread)
 	THREAD_CFLAGS="-pthread"
-	PC_LIBS_PRIVATE="${PC_LIBS_PRIVATE} -pthread"
+	LIBS="${LIBS} -pthread"
 	AC_CHECK_HEADERS([poll.h])
 	AC_DEFINE([POLL_NFDS_TYPE],[nfds_t],[type of second poll() argument])
 	;;
 darwin)
 	AC_DEFINE(OS_DARWIN, 1, [Darwin backend])
 	AC_SUBST(OS_DARWIN)
-	PC_LIBS_PRIVATE="-lobjc -Wl,-framework,IOKit -Wl,-framework,CoreFoundation"
+	LIBS="-lobjc -Wl,-framework,IOKit -Wl,-framework,CoreFoundation"
 	LTLDFLAGS="${LTLDFLAGS} -Wl,-prebind"
 	AC_CHECK_HEADERS([poll.h])
 	AC_CHECK_TYPE([nfds_t],
@@ -108,22 +108,20 @@ bsd)
 	AC_DEFINE(OS_OPENBSD, 1, [OpenBSD/NetBSD backend])
 	AC_SUBST(OS_OPENBSD)
 	THREAD_CFLAGS="-pthread"
-	PC_LIBS_PRIVATE="-pthread"
+	LIBS="-pthread"
 	AC_CHECK_HEADERS([poll.h])
 	AC_DEFINE([POLL_NFDS_TYPE],[nfds_t],[type of second poll() argument])
 	;;
 windows)
 	AC_DEFINE(OS_WINDOWS, 1, [Windows backend])
 	AC_SUBST(OS_WINDOWS)
-	PC_LIBS_PRIVATE=""
+	LIBS=""
 	LTLDFLAGS="${LTLDFLAGS} -avoid-version -Wl,--add-stdcall-alias"
 	AC_DEFINE([POLL_NFDS_TYPE],[unsigned int],[type of second poll() argument])
 	;;
 esac
 
-AC_SUBST(THREAD_CFLAGS)
-AC_SUBST(PC_LIBS_PRIVATE)
-LIBS="${LIBS} ${PC_LIBS_PRIVATE}"
+AC_SUBST(LIBS)
 
 AM_CONDITIONAL(OS_LINUX, test "x$backend" = xlinux)
 AM_CONDITIONAL(OS_DARWIN, test "x$backend" = xdarwin)
@@ -188,6 +186,13 @@ AC_ARG_ENABLE([examples-build], [AS_HELP_STRING([--enable-examples-build],
 	[build_examples='no'])
 AM_CONDITIONAL([BUILD_EXAMPLES], [test "x$build_examples" != "xno"])
 
+# Tests build
+AC_ARG_ENABLE([tests-build], [AS_HELP_STRING([--enable-tests-build],
+	[build test applications (default n)])],
+	[build_tests=$enableval],
+	[build_tests='no'])
+AM_CONDITIONAL([BUILD_TESTS], [test "x$build_tests" != "xno"])
+
 # check for -fvisibility=hidden compiler support (GCC >= 3.4)
 saved_cflags="$CFLAGS"
 # -Werror required for cygwin
@@ -214,10 +219,10 @@ AM_CONDITIONAL([HAVE_SIGACTION], [test "x$have_sigaction" = "xyes"])
 # headers not available on all platforms but required on others
 AC_CHECK_HEADERS([sys/time.h])
 AC_CHECK_FUNCS(gettimeofday)
+AC_CHECK_HEADERS([signal.h])
 
-AM_CFLAGS="${AM_CFLAGS} -std=gnu99 -Wall -Wundef -Wunused -Wstrict-prototypes -Werror-implicit-function-declaration $nopointersign_cflags -Wshadow"
+AM_CFLAGS="${AM_CFLAGS} -std=gnu99 -Wall -Wundef -Wunused -Wstrict-prototypes -Werror-implicit-function-declaration $nopointersign_cflags -Wshadow ${THREAD_CFLAGS} ${VISIBILITY_CFLAGS}"
 
-AC_SUBST(VISIBILITY_CFLAGS)
 AC_SUBST(AM_CFLAGS)
 AC_SUBST(LTLDFLAGS)
 
@@ -225,6 +230,7 @@ AC_CONFIG_FILES([libusb-1.0.pc])
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([libusb/Makefile])
 AC_CONFIG_FILES([examples/Makefile])
+AC_CONFIG_FILES([tests/Makefile])
 AC_CONFIG_FILES([doc/Makefile])
 AC_CONFIG_FILES([doc/doxygen.cfg])
 AC_OUTPUT

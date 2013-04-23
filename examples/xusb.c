@@ -33,10 +33,6 @@
 #define msleep(msecs) usleep(1000*msecs)
 #endif
 
-#if !defined(_MSC_VER) || _MSC_VER<=1200
-#define sscanf_s sscanf
-#endif
-
 #if !defined(bool)
 #define bool int
 #endif
@@ -46,7 +42,6 @@
 #if !defined(false)
 #define false (!true)
 #endif
-
 
 // Future versions of libusbx will use usb_interface instead of interface
 // in libusb_config_descriptor => catter for that
@@ -693,11 +688,12 @@ static void read_ms_winsub_feature_descriptors(libusb_device_handle *handle, uin
 	void* le_type_punning_IS_fine;
 	struct {
 		const char* desc;
+		uint8_t recipient;
 		uint16_t index;
 		uint16_t header_size;
 	} os_fd[2] = {
-		{"Extended Compat ID", 0x0004, 0x10},
-		{"Extended Properties", 0x0005, 0x0A}
+		{"Extended Compat ID", LIBUSB_RECIPIENT_DEVICE, 0x0004, 0x10},
+		{"Extended Properties", LIBUSB_RECIPIENT_INTERFACE, 0x0005, 0x0A}
 	};
 
 	if (iface_number < 0) return;
@@ -706,7 +702,7 @@ static void read_ms_winsub_feature_descriptors(libusb_device_handle *handle, uin
 		printf("\nReading %s OS Feature Descriptor (wIndex = 0x%04d):\n", os_fd[i].desc, os_fd[i].index);
 
 		// Read the header part
-		r = libusb_control_transfer(handle, (uint8_t)(LIBUSB_ENDPOINT_IN|LIBUSB_REQUEST_TYPE_VENDOR|LIBUSB_RECIPIENT_DEVICE),
+		r = libusb_control_transfer(handle, (uint8_t)(LIBUSB_ENDPOINT_IN|LIBUSB_REQUEST_TYPE_VENDOR|os_fd[i].recipient),
 			bRequest, (uint16_t)(((iface_number)<< 8)|0x00), os_fd[i].index, os_desc, os_fd[i].header_size, 1000);
 		if (r < os_fd[i].header_size) {
 			perr("   Failed: %s", (r<0)?libusb_error_name((enum libusb_error)r):"header size is too small");
@@ -719,7 +715,7 @@ static void read_ms_winsub_feature_descriptors(libusb_device_handle *handle, uin
 		}
 
 		// Read the full feature descriptor
-		r = libusb_control_transfer(handle, (uint8_t)(LIBUSB_ENDPOINT_IN|LIBUSB_REQUEST_TYPE_VENDOR|LIBUSB_RECIPIENT_DEVICE),
+		r = libusb_control_transfer(handle, (uint8_t)(LIBUSB_ENDPOINT_IN|LIBUSB_REQUEST_TYPE_VENDOR|os_fd[i].recipient),
 			bRequest, (uint16_t)(((iface_number)<< 8)|0x00), os_fd[i].index, os_desc, (uint16_t)length, 1000);
 		if (r < 0) {
 			perr("   Failed: %s", libusb_error_name((enum libusb_error)r));
@@ -739,10 +735,8 @@ static int test_device(uint16_t vid, uint16_t pid)
 	const struct libusb_endpoint_descriptor *endpoint;
 	int i, j, k, r;
 	int iface, nb_ifaces, first_iface = -1;
-#if defined(__linux__)
-	// Attaching/detaching the kernel driver is only relevant for Linux
+	// For attaching/detaching the kernel driver, if needed
 	int iface_detached = -1;
-#endif
 	struct libusb_device_descriptor dev_desc;
 	const char* speed_name[5] = { "Unknown", "1.5 Mbit/s (USB LowSpeed)", "12 Mbit/s (USB FullSpeed)",
 		"480 Mbit/s (USB HighSpeed)", "5000 Mbit/s (USB SuperSpeed)"};
@@ -837,16 +831,17 @@ static int test_device(uint16_t vid, uint16_t pid)
 	{
 		printf("\nClaiming interface %d...\n", iface);
 		r = libusb_claim_interface(handle, iface);
-#if defined(__linux__)
-		if ((r != LIBUSB_SUCCESS) && (iface == 0)) {
-			// Maybe we need to detach the driver
-			perr("   Failed. Trying to detach driver...\n");
-			libusb_detach_kernel_driver(handle, iface);
-			iface_detached = iface;
-			printf("   Claiming interface again...\n");
-			r = libusb_claim_interface(handle, iface);
+		if ((r != LIBUSB_SUCCESS) && libusb_has_capability(LIBUSB_CAP_SUPPORTS_DETACH_KERNEL_DRIVER)
+			&& (libusb_kernel_driver_active(handle, iface) > 0)) {
+			// Try to detach the kernel driver
+			perr("   A kernel driver is active, trying to detach it...\n");
+			r = libusb_detach_kernel_driver(handle, iface);
+			if (r == LIBUSB_SUCCESS) {
+				iface_detached = iface;
+				printf("   Claiming interface again...\n");
+				r = libusb_claim_interface(handle, iface);
+			}
 		}
-#endif
 		if (r != LIBUSB_SUCCESS) {
 			perr("   Failed.\n");
 		}
@@ -895,12 +890,10 @@ static int test_device(uint16_t vid, uint16_t pid)
 		libusb_release_interface(handle, iface);
 	}
 
-#if defined(__linux__)
 	if (iface_detached >= 0) {
 		printf("Re-attaching kernel driver...\n");
 		libusb_attach_kernel_driver(handle, iface_detached);
 	}
-#endif
 
 	printf("Closing device...\n");
 	libusb_close(handle);
@@ -992,7 +985,7 @@ int main(int argc, char** argv)
 						break;
 				}
 				if (i != arglen) {
-					if (sscanf_s(argv[j], "%x:%x" , &tmp_vid, &tmp_pid) != 2) {
+					if (sscanf(argv[j], "%x:%x" , &tmp_vid, &tmp_pid) != 2) {
 						printf("   Please specify VID & PID as \"vid:pid\" in hexadecimal format\n");
 						return 1;
 					}
