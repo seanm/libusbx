@@ -341,10 +341,10 @@ static int wince_get_device_list(
 	UKW_DEVICE devices[MAX_DEVICE_COUNT];
 	struct discovered_devs * new_devices = *discdevs;
 	DWORD count = 0, i;
-	struct libusb_device *dev;
+	struct libusb_device *dev = NULL;
 	unsigned char bus_addr, dev_addr;
 	unsigned long session_id;
-	BOOL success, need_unref = FALSE;
+	BOOL success;
 	DWORD release_list_offset = 0;
 	int r = LIBUSB_SUCCESS;
 
@@ -366,6 +366,7 @@ static int wince_get_device_list(
 		if (dev) {
 			usbi_dbg("using existing device for %d/%d (session %ld)",
 					bus_addr, dev_addr, session_id);
+			libusb_ref_device(dev);
 			// Release just this element in the device list (as we already hold a 
 			// reference to it).
 			UkwReleaseDeviceList(driver_handle, &devices[i], 1);
@@ -378,7 +379,6 @@ static int wince_get_device_list(
 				r = LIBUSB_ERROR_NO_MEM;
 				goto err_out;
 			}
-			need_unref = TRUE;
 			r = init_device(dev, devices[i], bus_addr, dev_addr);
 			if (r < 0)
 				goto err_out;
@@ -391,14 +391,13 @@ static int wince_get_device_list(
 			r = LIBUSB_ERROR_NO_MEM;
 			goto err_out;
 		}
-		need_unref = FALSE;
+		safe_unref_device(dev);
 	}
 	*discdevs = new_devices;
 	return r;
 err_out:
 	*discdevs = new_devices;
-	if (need_unref)
-		libusb_unref_device(dev);
+	safe_unref_device(dev);
 	// Release the remainder of the unprocessed device list.
 	// The devices added to new_devices already will still be passed up to libusb, 
 	// which can dispose of them at its leisure.
@@ -435,7 +434,7 @@ static int wince_get_active_config_descriptor(
 {
 	struct wince_device_priv *priv = _device_priv(device);
 	DWORD actualSize = len;
-	*host_endian = 1;
+	*host_endian = 0;
 	if (!UkwGetConfigDescriptor(priv->dev, UKW_ACTIVE_CONFIGURATION, buffer, len, &actualSize)) {
 		return translate_driver_error(GetLastError());
 	}
@@ -978,12 +977,14 @@ const struct usbi_os_backend wince_backend = {
         wince_exit,
 
         wince_get_device_list,
+	NULL,				/* hotplug_poll */
         wince_open,
         wince_close,
 
         wince_get_device_descriptor,
         wince_get_active_config_descriptor,
         wince_get_config_descriptor,
+	NULL,				/* get_config_descriptor_by_value() */
 
         wince_get_configuration,
         wince_set_configuration,

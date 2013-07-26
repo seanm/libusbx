@@ -56,26 +56,35 @@
 #define USBI_CAP_HAS_HID_ACCESS					0x00010000
 #define USBI_CAP_SUPPORTS_DETACH_KERNEL_DRIVER	0x00020000
 
+/* Maximum number of bytes in a log line */
+#define USBI_MAX_LOG_LEN	1024
+/* Terminator for log lines */
+#define USBI_LOG_LINE_END	"\n"
+
 /* The following is used to silence warnings for unused variables */
 #define UNUSED(var)			do { (void)(var); } while(0)
+
+#if !defined(ARRAYSIZE)
+#define ARRAYSIZE(array) (sizeof(array)/sizeof(array[0]))
+#endif
 
 struct list_head {
 	struct list_head *prev, *next;
 };
 
 /* Get an entry from the list
- * 	ptr - the address of this list_head element in "type"
- * 	type - the data type that contains "member"
- * 	member - the list_head element in "type"
+ *  ptr - the address of this list_head element in "type"
+ *  type - the data type that contains "member"
+ *  member - the list_head element in "type"
  */
 #define list_entry(ptr, type, member) \
 	((type *)((uintptr_t)(ptr) - (uintptr_t)offsetof(type, member)))
 
 /* Get each entry from a list
- *	pos - A structure pointer has a "member" element
- *	head - list head
- *	member - the list_head element in "pos"
- *	type - the type of the first parameter
+ *  pos - A structure pointer has a "member" element
+ *  head - list head
+ *  member - the list_head element in "pos"
+ *  type - the type of the first parameter
  */
 #define list_for_each_entry(pos, head, member, type)			\
 	for (pos = list_entry((head)->next, type, member);			\
@@ -224,6 +233,11 @@ struct libusb_context {
 	struct list_head open_devs;
 	usbi_mutex_t open_devs_lock;
 
+	/* A list of registered hotplug callbacks */
+	struct list_head hotplug_cbs;
+	usbi_mutex_t hotplug_cbs_lock;
+	int hotplug_pipe[2];
+
 	/* this is a list of in-flight transfer handles, sorted by timeout
 	 * expiration. URBs to timeout the soonest are placed at the beginning of
 	 * the list, URBs that will time out later are placed after, and urbs with
@@ -261,6 +275,8 @@ struct libusb_context {
 	 * this timerfd is maintained to trigger on the next pending timeout */
 	int timerfd;
 #endif
+
+	struct list_head list;
 };
 
 #ifdef USBI_TIMERFD_AVAILABLE
@@ -286,7 +302,17 @@ struct libusb_device {
 
 	struct list_head list;
 	unsigned long session_data;
-	unsigned char os_priv[0];
+
+	struct libusb_device_descriptor device_descriptor;
+	int attached;
+
+	unsigned char os_priv
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+	[] /* valid C99 code */
+#else
+	[0] /* non-standard, but usually working code */
+#endif
+	;
 };
 
 struct libusb_device_handle {
@@ -296,7 +322,14 @@ struct libusb_device_handle {
 
 	struct list_head list;
 	struct libusb_device *dev;
-	unsigned char os_priv[0];
+	int auto_detach_kernel_driver;
+	unsigned char os_priv
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+	[] /* valid C99 code */
+#else
+	[0] /* non-standard, but usually working code */
+#endif
+	;
 };
 
 enum {
@@ -390,21 +423,26 @@ int usbi_handle_transfer_completion(struct usbi_transfer *itransfer,
 	enum libusb_transfer_status status);
 int usbi_handle_transfer_cancellation(struct usbi_transfer *transfer);
 
-int usbi_parse_descriptor(unsigned char *source, const char *descriptor,
+int usbi_parse_descriptor(const unsigned char *source, const char *descriptor,
 	void *dest, int host_endian);
+int usbi_device_cache_descriptor(libusb_device *dev);
 int usbi_get_config_index_by_value(struct libusb_device *dev,
 	uint8_t bConfigurationValue, int *idx);
+
+void usbi_connect_device (struct libusb_device *dev);
+void usbi_disconnect_device (struct libusb_device *dev);
 
 /* Internal abstraction for poll (needs struct usbi_transfer on Windows) */
 #if defined(OS_LINUX) || defined(OS_DARWIN) || defined(OS_OPENBSD)
 #include <unistd.h>
 #include "os/poll_posix.h"
 #elif defined(OS_WINDOWS) || defined(OS_WINCE)
-#include <os/poll_windows.h>
+#include "os/poll_windows.h"
 #endif
 
-#if (defined(OS_WINDOWS) || defined(OS_WINCE)) && !defined(__GCC__)
-#undef HAVE_GETTIMEOFDAY
+#if (defined(OS_WINDOWS) || defined(OS_WINCE)) && !defined(__GNUC__)
+#define snprintf _snprintf
+#define vsnprintf _vsnprintf
 int usbi_gettimeofday(struct timeval *tp, void *tzp);
 #define LIBUSB_GETTIMEOFDAY_WIN32
 #define HAVE_USBI_GETTIMEOFDAY
@@ -436,7 +474,13 @@ void usbi_fd_notification(struct libusb_context *ctx);
 struct discovered_devs {
 	size_t len;
 	size_t capacity;
-	struct libusb_device *devices[0];
+	struct libusb_device *devices
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+	[] /* valid C99 code */
+#else
+	[0] /* non-standard, but usually working code */
+#endif
+	;
 };
 
 struct discovered_devs *discovered_devs_append(
@@ -518,10 +562,29 @@ struct usbi_os_backend {
 	 * This function is executed when the user wishes to retrieve a list
 	 * of USB devices connected to the system.
 	 *
+	 * If the backend has hotplug support, this function is not used!
+	 *
 	 * Return 0 on success, or a LIBUSB_ERROR code on failure.
 	 */
 	int (*get_device_list)(struct libusb_context *ctx,
 		struct discovered_devs **discdevs);
+
+	/* Apps which were written before hotplug support, may listen for
+	 * hotplug events on their own and call libusb_get_device_list on
+	 * device addition. In this case libusb_get_device_list will likely
+	 * return a list without the new device in there, as the hotplug
+	 * event thread will still be busy enumerating the device, which may
+	 * take a while, or may not even have seen the event yet.
+	 *
+	 * To avoid this libusb_get_device_list will call this optional
+	 * function for backends with hotplug support before copying
+	 * ctx->usb_devs to the user. In this function the backend should
+	 * ensure any pending hotplug events are fully processed before
+	 * returning.
+	 *
+	 * Optional, should be implemented by backends with hotplug support.
+	 */
+	void (*hotplug_poll)(void);
 
 	/* Open a device for I/O and other USB operations. The device handle
 	 * is preallocated for you, you can retrieve the device in question
@@ -630,6 +693,22 @@ struct usbi_os_backend {
 	 */
 	int (*get_config_descriptor)(struct libusb_device *device,
 		uint8_t config_index, unsigned char *buffer, size_t len,
+		int *host_endian);
+
+	/* Like get_config_descriptor but then by bConfigurationValue instead
+	 * of by index.
+	 *
+	 * Optional, if not present the core will call get_config_descriptor
+	 * for all configs until it finds the desired bConfigurationValue.
+	 *
+	 * Returns a pointer to the raw-descriptor in *buffer, this memory
+	 * is valid as long as device is valid.
+	 *
+	 * Returns the length of the returned raw-descriptor on success,
+	 * or a LIBUSB_ERROR code on failure.
+	 */
+	int (*get_config_descriptor_by_value)(struct libusb_device *device,
+		uint8_t bConfigurationValue, unsigned char **buffer,
 		int *host_endian);
 
 	/* Get the bConfigurationValue for the active configuration for a device.
@@ -815,6 +894,8 @@ struct usbi_os_backend {
 	 *
 	 * This function must not block.
 	 *
+	 * This function gets called with the flying_transfers_lock locked!
+	 *
 	 * Return:
 	 * - 0 on success
 	 * - LIBUSB_ERROR_NO_DEVICE if the device has been disconnected
@@ -916,5 +997,8 @@ extern const struct usbi_os_backend darwin_backend;
 extern const struct usbi_os_backend openbsd_backend;
 extern const struct usbi_os_backend windows_backend;
 extern const struct usbi_os_backend wince_backend;
+
+extern struct list_head active_contexts_list;
+extern usbi_mutex_static_t active_contexts_lock;
 
 #endif

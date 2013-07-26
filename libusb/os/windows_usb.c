@@ -1110,7 +1110,7 @@ static int init_device(struct libusb_device* dev, struct libusb_device* parent_d
 	dev->port_number = port_number;
 	priv->depth = parent_priv->depth + 1;
 	priv->parent_dev = parent_dev;
-	dev->parent_dev = parent_dev;
+	dev->parent_dev = libusb_ref_device(parent_dev);
 
 	// If the device address is already set, we can stop here
 	if (dev->device_address != 0) {
@@ -1169,6 +1169,8 @@ static int init_device(struct libusb_device* dev, struct libusb_device* parent_d
 		dev->device_address = 1;	// root hubs are set to use device number 1
 		force_hcd_device_descriptor(dev);
 	}
+
+	usbi_sanitize_device(dev);
 
 	usbi_dbg("(bus: %d, addr: %d, depth: %d, port: %d): '%s'",
 		dev->bus_number, dev->device_address, priv->depth, priv->port, device_id);
@@ -1755,8 +1757,9 @@ static int windows_get_config_descriptor(struct libusb_device *dev, uint8_t conf
 
 	size = min(config_header->wTotalLength, len);
 	memcpy(buffer, priv->config_descriptor[config_index], size);
+	*host_endian = 0;
 
-	return LIBUSB_SUCCESS;
+	return size;
 }
 
 /*
@@ -2267,12 +2270,14 @@ const struct usbi_os_backend windows_backend = {
 	windows_exit,
 
 	windows_get_device_list,
+	NULL,				/* hotplug_poll */
 	windows_open,
 	windows_close,
 
 	windows_get_device_descriptor,
 	windows_get_active_config_descriptor,
 	windows_get_config_descriptor,
+	NULL,				/* get_config_descriptor_by_value() */
 
 	windows_get_configuration,
 	windows_set_configuration,
