@@ -59,12 +59,12 @@ case $host in
 	;;
 *-openbsd*)
 	AC_MSG_RESULT([OpenBSD])
-	backend="bsd"
+	backend="openbsd"
 	threads="posix"
 	;;
 *-netbsd*)
-	AC_MSG_RESULT([NetBSD (using OpenBSD backend)])
-	backend="bsd"
+	AC_MSG_RESULT([NetBSD])
+	backend="netbsd"
 	threads="posix"
 	;;
 *-mingw*)
@@ -89,7 +89,7 @@ linux)
 	AC_SUBST(OS_LINUX)
 	AC_SEARCH_LIBS(clock_gettime, rt, [], [], -pthread)
 	AC_ARG_ENABLE([udev],
-		[AC_HELP_STRING([--enable-udev], [use udev for device enumeration and hotplug support (recommended, default: yes)])],
+		[AC_HELP_STRING([--enable-udev], [use udev for device enumeration and hotplug support (recommended) [default=yes]])],
 		[], [enable_udev="yes"])
 		if test "x$enable_udev" = "xyes" ; then
 			# system has udev. use it or fail!
@@ -97,7 +97,15 @@ linux)
 			AC_CHECK_LIB([udev], [udev_new], [], [AC_ERROR(["udev support requested but libudev not installed"])])
 			AC_DEFINE(USE_UDEV, 1, [Use udev for device enumeration/hotplug])
 		else
-			AC_CHECK_HEADERS([linux/netlink.h linux/filter.h], [], [AC_ERROR(["Linux netlink headers not found"])])
+			AC_CHECK_HEADERS([asm/types.h sys/socket.h], [], [])
+			AC_CHECK_HEADERS([linux/netlink.h linux/filter.h], [], [AC_ERROR(["Linux netlink headers not found"])], [
+#ifdef HAVE_ASM_TYPES_H
+#include <asm/types.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+])
 		fi
 		AC_SUBST(USE_UDEV)
 	THREAD_CFLAGS="-pthread"
@@ -116,9 +124,17 @@ darwin)
 		[AC_DEFINE([POLL_NFDS_TYPE],[unsigned int],[type of second poll() argument])],
 		[#include <poll.h>])
 	;;
-bsd)
-	AC_DEFINE(OS_OPENBSD, 1, [OpenBSD/NetBSD backend])
+openbsd)
+	AC_DEFINE(OS_OPENBSD, 1, [OpenBSD backend])
 	AC_SUBST(OS_OPENBSD)
+	THREAD_CFLAGS="-pthread"
+	LIBS="-pthread"
+	AC_CHECK_HEADERS([poll.h])
+	AC_DEFINE([POLL_NFDS_TYPE],[nfds_t],[type of second poll() argument])
+	;;
+netbsd)
+	AC_DEFINE(OS_NETBSD, 1, [NetBSD backend])
+	AC_SUBST(OS_NETBSD)
 	THREAD_CFLAGS="-pthread"
 	LIBS="-pthread"
 	AC_CHECK_HEADERS([poll.h])
@@ -137,7 +153,8 @@ AC_SUBST(LIBS)
 
 AM_CONDITIONAL(OS_LINUX, test "x$backend" = xlinux)
 AM_CONDITIONAL(OS_DARWIN, test "x$backend" = xdarwin)
-AM_CONDITIONAL(OS_OPENBSD, test "x$backend" = xbsd)
+AM_CONDITIONAL(OS_OPENBSD, test "x$backend" = xopenbsd)
+AM_CONDITIONAL(OS_NETBSD, test "x$backend" = xnetbsd)
 AM_CONDITIONAL(OS_WINDOWS, test "x$backend" = xwindows)
 AM_CONDITIONAL(THREADS_POSIX, test "x$threads" = xposix)
 AM_CONDITIONAL(CREATE_IMPORT_LIB, test "x$create_import_lib" = "xyes")
@@ -150,7 +167,7 @@ fi
 AC_CHECK_HEADER([sys/timerfd.h], [timerfd_h=1], [timerfd_h=0])
 AC_ARG_ENABLE([timerfd],
 	[AS_HELP_STRING([--enable-timerfd],
-		[use timerfd for timing (default auto)])],
+		[use timerfd for timing [default=auto]])],
 	[use_timerfd=$enableval], [use_timerfd='auto'])
 
 if test "x$use_timerfd" = "xyes" -a "x$timerfd_h" = "x0"; then
@@ -185,23 +202,38 @@ if test "x$log_enabled" != "xno"; then
 fi
 
 AC_ARG_ENABLE([debug-log], [AS_HELP_STRING([--enable-debug-log],
-	[start with debug message logging enabled (default n)])],
+	[start with debug message logging enabled [default=no]])],
 	[debug_log_enabled=$enableval],
 	[debug_log_enabled='no'])
 if test "x$debug_log_enabled" != "xno"; then
 	AC_DEFINE([ENABLE_DEBUG_LOGGING], 1, [Start with debug message logging enabled])
 fi
 
+AC_ARG_ENABLE([system-log], [AS_HELP_STRING([--enable-system-log],
+	[output logging messages to system wide log, if supported by the OS [default=no]])],
+	[system_log_enabled=$enableval],
+	[system_log_enabled='no'])
+if test "x$system_log_enabled" != "xno"; then
+	AC_DEFINE([USE_SYSTEM_LOGGING_FACILITY], 1, [Enable output to system log])
+fi
+
+# Check if syslog is available in standard C library
+AC_CHECK_HEADERS(syslog.h)
+AC_CHECK_FUNC([syslog], [have_syslog=yes], [have_syslog=no])
+if test "x$have_syslog" != "xno"; then
+	AC_DEFINE([HAVE_SYSLOG_FUNC], 1, [syslog() function available])
+fi
+
 # Examples build
 AC_ARG_ENABLE([examples-build], [AS_HELP_STRING([--enable-examples-build],
-	[build example applications (default n)])],
+	[build example applications [default=no]])],
 	[build_examples=$enableval],
 	[build_examples='no'])
 AM_CONDITIONAL([BUILD_EXAMPLES], [test "x$build_examples" != "xno"])
 
 # Tests build
 AC_ARG_ENABLE([tests-build], [AS_HELP_STRING([--enable-tests-build],
-	[build test applications (default n)])],
+	[build test applications [default=no]])],
 	[build_tests=$enableval],
 	[build_tests='no'])
 AM_CONDITIONAL([BUILD_TESTS], [test "x$build_tests" != "xno"])

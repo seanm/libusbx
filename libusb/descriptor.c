@@ -674,9 +674,9 @@ int usbi_get_config_index_by_value(struct libusb_device *dev,
 		int r = usbi_backend->get_config_descriptor(dev, i, tmp, sizeof(tmp),
 			&host_endian);
 		if (r < 0) {
-            *idx = -1;
+			*idx = -1;
 			return r;
-        }
+		}
 		if (tmp[5] == bConfigurationValue) {
 			*idx = i;
 			return 0;
