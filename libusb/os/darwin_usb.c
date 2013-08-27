@@ -702,7 +702,7 @@ static int darwin_cache_device_descriptor (struct libusb_context *ctx, struct da
     else
       usbi_warn (ctx, "could not retrieve device descriptor %.4x:%.4x: %s (%x). skipping device",
                  idVendor, idProduct, darwin_error_str (ret), ret);
-    return -1;
+    return darwin_to_libusb (ret);
   }
 
   /* catch buggy hubs (which appear to be virtual). Apple's own USB prober has problems with these devices. */
@@ -710,7 +710,7 @@ static int darwin_cache_device_descriptor (struct libusb_context *ctx, struct da
     /* not a valid device */
     usbi_warn (ctx, "idProduct from iokit (%04x) does not match idProduct in descriptor (%04x). skipping device",
                idProduct, libusb_le16_to_cpu (dev->dev_descriptor.idProduct));
-    return -1;
+    return LIBUSB_ERROR_NO_DEVICE;
   }
 
   usbi_dbg ("cached device descriptor:");
@@ -730,7 +730,7 @@ static int darwin_cache_device_descriptor (struct libusb_context *ctx, struct da
 
   dev->can_enumerate = 1;
 
-  return 0;
+  return LIBUSB_SUCCESS;
 }
 
 static int darwin_get_cached_device(struct libusb_context *ctx, io_service_t service,
@@ -742,8 +742,6 @@ static int darwin_get_cached_device(struct libusb_context *ctx, io_service_t ser
   io_service_t parent;
   kern_return_t result;
   UInt8 port = 0;
-
-  *cached_out = NULL;
 
   /* get some info from the io registry */
   (void) get_ioregistry_value_number (service, CFSTR("sessionID"), kCFNumberSInt64Type, &sessionID);
@@ -760,6 +758,8 @@ static int darwin_get_cached_device(struct libusb_context *ctx, io_service_t ser
 
   usbi_mutex_lock(&darwin_cached_devices_lock);
   do {
+    *cached_out = NULL;
+
     list_for_each_entry(new_device, &darwin_cached_devices, list, struct darwin_cached_device) {
       usbi_dbg("matching sessionID 0x%x against cached device with sessionID 0x%x", sessionID, new_device->session);
       if (new_device->session == sessionID) {
@@ -774,17 +774,15 @@ static int darwin_get_cached_device(struct libusb_context *ctx, io_service_t ser
 
     usbi_dbg("caching new device with sessionID 0x%x\n", sessionID);
 
-    new_device = calloc (1, sizeof (*new_device));
-    if (!new_device) {
-      ret = LIBUSB_ERROR_NO_MEM;
-      break;
-    }
-
     device = darwin_device_from_service (service);
     if (!device) {
       ret = LIBUSB_ERROR_NO_DEVICE;
-      free (new_device);
-      new_device = NULL;
+      break;
+    }
+
+    new_device = calloc (1, sizeof (*new_device));
+    if (!new_device) {
+      ret = LIBUSB_ERROR_NO_MEM;
       break;
     }
 
@@ -834,7 +832,7 @@ static int process_new_device (struct libusb_context *ctx, io_service_t service)
   do {
     ret = darwin_get_cached_device (ctx, service, &cached_device);
 
-    if (ret < 0 || (cached_device && !cached_device->can_enumerate)) {
+    if (ret < 0 || !cached_device->can_enumerate) {
       return ret;
     }
 
