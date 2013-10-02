@@ -85,12 +85,19 @@ typedef unsigned __int32  uint32_t;
 #endif
 #endif
 
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5)
-#define LIBUSB_DEPRECATED_FOR(f) \
-  __attribute__((deprecated("Use " #f " instead")))
+/* Define the LIBUSB_DEPRECATED_FOR to generate complier warnings */
+#if defined(__GNUC__) && ((__GNUC__ > 4) || \
+                          (__GNUC__ == 4 && __GNUC_MINOR__ >= 5))
+  #define LIBUSB_DEPRECATED_FOR(f) \
+    __attribute__((deprecated("Use " #f " instead")))
+#elif defined(__clang__) && defined(__has_extension)
+  #if __has_extension(attribute_deprecated_with_message)
+    #define LIBUSB_DEPRECATED_FOR(f) \
+      __attribute__((deprecated("Use " #f " instead")))
+  #endif
 #else
-#define LIBUSB_DEPRECATED_FOR(f)
-#endif /* __GNUC__ */
+  #define LIBUSB_DEPRECATED_FOR(f)
+#endif
 
 /** \def LIBUSB_CALL
  * \ingroup misc
