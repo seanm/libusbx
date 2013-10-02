@@ -50,6 +50,7 @@
 // Global variables
 static bool binary_dump = false;
 static bool extra_info = false;
+static bool force_device_request = false;	// For WCID descriptor queries
 static const char* binary_name = NULL;
 
 static int perr(char const *format, ...)
@@ -415,6 +416,7 @@ static void get_sense(libusb_device_handle *handle, uint8_t endpoint_in, uint8_t
 	uint8_t sense[18];
 	uint32_t expected_tag;
 	int size;
+	int rc;
 
 	// Request Sense
 	printf("Request Sense:\n");
@@ -424,7 +426,12 @@ static void get_sense(libusb_device_handle *handle, uint8_t endpoint_in, uint8_t
 	cdb[4] = REQUEST_SENSE_LENGTH;
 
 	send_mass_storage_command(handle, endpoint_out, 0, cdb, LIBUSB_ENDPOINT_IN, REQUEST_SENSE_LENGTH, &expected_tag);
-	libusb_bulk_transfer(handle, endpoint_in, (unsigned char*)&sense, REQUEST_SENSE_LENGTH, &size, 1000);
+	rc = libusb_bulk_transfer(handle, endpoint_in, (unsigned char*)&sense, REQUEST_SENSE_LENGTH, &size, 1000);
+	if (rc < 0)
+	{
+		printf("libusb_bulk_transfer failed: %s\n", libusb_error_name(rc));
+		return;
+	}
 	printf("   received %d bytes\n", size);
 
 	if ((sense[0] != 0x70) && (sense[0] != 0x71)) {
@@ -707,6 +714,11 @@ static void read_ms_winsub_feature_descriptors(libusb_device_handle *handle, uin
 	};
 
 	if (iface_number < 0) return;
+	// WinUSB has a limitation that forces wIndex to the interface number when issuing
+	// an Interface Request. To work around that, we can force a Device Request for
+	// the Extended Properties, assuming the device answers both equally.
+	if (force_device_request)
+		os_fd[1].recipient = LIBUSB_RECIPIENT_DEVICE;
 
 	for (i=0; i<2; i++) {
 		printf("\nReading %s OS Feature Descriptor (wIndex = 0x%04d):\n", os_fd[i].desc, os_fd[i].index);
@@ -985,6 +997,9 @@ int main(int argc, char** argv)
 				case 'i':
 					extra_info = true;
 					break;
+				case 'w':
+					force_device_request = true;
+					break;
 				case 'b':
 					if ((j+1 >= argc) || (argv[j+1][0] == '-') || (argv[j+1][0] == '/')) {
 						printf("   Option -b requires a file name\n");
@@ -1057,7 +1072,7 @@ int main(int argc, char** argv)
 	}
 
 	if ((show_help) || (argc == 1) || (argc > 7)) {
-		printf("usage: %s [-h] [-d] [-i] [-k] [-b file] [-l lang] [-j] [-x] [-s] [-p] [vid:pid]\n", argv[0]);
+		printf("usage: %s [-h] [-d] [-i] [-k] [-b file] [-l lang] [-j] [-x] [-s] [-p] [-w] [vid:pid]\n", argv[0]);
 		printf("   -h      : display usage\n");
 		printf("   -d      : enable debug output\n");
 		printf("   -i      : print topology and speed info\n");
@@ -1068,6 +1083,7 @@ int main(int argc, char** argv)
 		printf("   -s      : test Microsoft Sidewinder Precision Pro (HID)\n");
 		printf("   -x      : test Microsoft XBox Controller Type S\n");
 		printf("   -l lang : language to report errors in (ISO 639-1)\n");
+		printf("   -w      : force the use of device requests when querying WCID descriptors\n");
 		printf("If only the vid:pid is provided, xusb attempts to run the most appropriate test\n");
 		return 0;
 	}
