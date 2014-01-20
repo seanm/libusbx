@@ -158,6 +158,20 @@ static char err_string[ERR_BUFFER_SIZE];
 
 	safe_sprintf(err_string, ERR_BUFFER_SIZE, "[%u] ", error_code);
 
+	// Translate codes returned by SetupAPI. The ones we are dealing with are either
+	// in 0x0000xxxx or 0xE000xxxx and can be distinguished from standard error codes.
+	// See http://msdn.microsoft.com/en-us/library/windows/hardware/ff545011.aspx
+	switch (error_code & 0xE0000000) {
+	case 0:
+		error_code = HRESULT_FROM_WIN32(error_code);	// Still leaves ERROR_SUCCESS unmodified
+		break;
+	case 0xE0000000:
+		error_code =  0x80000000 | (FACILITY_SETUPAPI << 16) | (error_code & 0x0000FFFF);
+		break;
+	default:
+		break;
+	}
+
 	size = FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error_code,
 		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), &err_string[safe_strlen(err_string)],
 		ERR_BUFFER_SIZE - (DWORD)safe_strlen(err_string), NULL);
@@ -2381,7 +2395,7 @@ static int common_configure_endpoints(int sub_api, struct libusb_device_handle *
 	return LIBUSB_SUCCESS;
 }
 // These names must be uppercase
-const char* hub_driver_names[] = {"USBHUB", "USBHUB3", "NUSB3HUB", "RUSB3HUB", "FLXHCIH", "TIHUB3", "ETRONHUB3", "VIAHUB3", "ASMTHUB3", "IUSB3HUB"};
+const char* hub_driver_names[] = {"USBHUB", "USBHUB3", "NUSB3HUB", "RUSB3HUB", "FLXHCIH", "TIHUB3", "ETRONHUB3", "VIAHUB3", "ASMTHUB3", "IUSB3HUB", "VUSB3HUB"};
 const char* composite_driver_names[] = {"USBCCGP"};
 const char* winusbx_driver_names[] = WINUSBX_DRV_NAMES;
 const char* hid_driver_names[] = {"HIDUSB", "MOUHID", "KBDHID"};
@@ -4161,19 +4175,21 @@ static int hid_copy_transfer_data(int sub_api, struct usbi_transfer *itransfer, 
 	if (transfer_priv->hid_buffer != NULL) {
 		// If we have a valid hid_buffer, it means the transfer was async
 		if (transfer_priv->hid_dest != NULL) {	// Data readout
-			// First, check for overflow
-			if (corrected_size > transfer_priv->hid_expected_size) {
-				usbi_err(ctx, "OVERFLOW!");
-				corrected_size = (uint32_t)transfer_priv->hid_expected_size;
-				r = LIBUSB_TRANSFER_OVERFLOW;
-			}
+			if (corrected_size > 0) {
+				// First, check for overflow
+				if (corrected_size > transfer_priv->hid_expected_size) {
+					usbi_err(ctx, "OVERFLOW!");
+					corrected_size = (uint32_t)transfer_priv->hid_expected_size;
+					r = LIBUSB_TRANSFER_OVERFLOW;
+				}
 
-			if (transfer_priv->hid_buffer[0] == 0) {
-				// Discard the 1 byte report ID prefix
-				corrected_size--;
-				memcpy(transfer_priv->hid_dest, transfer_priv->hid_buffer+1, corrected_size);
-			} else {
-				memcpy(transfer_priv->hid_dest, transfer_priv->hid_buffer, corrected_size);
+				if (transfer_priv->hid_buffer[0] == 0) {
+					// Discard the 1 byte report ID prefix
+					corrected_size--;
+					memcpy(transfer_priv->hid_dest, transfer_priv->hid_buffer+1, corrected_size);
+				} else {
+					memcpy(transfer_priv->hid_dest, transfer_priv->hid_buffer, corrected_size);
+				}
 			}
 			transfer_priv->hid_dest = NULL;
 		}
